@@ -415,7 +415,7 @@ class ObjectSearch():
         return mask_dict
     
     
-    def beaconing(self,k):
+    """def beaconing(self,k):
         
         mask_sliced=self.mask_sliced
         output=self.base
@@ -439,7 +439,7 @@ class ObjectSearch():
             self.move(LINEAR_SPEED,-float(err)/1000)
         print("yes")
         cv2.imshow('beac',output)
-        cv2.waitKey(3)            
+        cv2.waitKey(3)"""            
                 
             
             
@@ -447,9 +447,9 @@ class ObjectSearch():
 o=ObjectSearch()
 o.move(0,0)
 rospy.sleep(3) 
-#o.navigate()
+o.navigate()
 o.move(0,0)
 while(True):
-    #o.go_to_node()
-    o.beaconing('number_5')
+    o.go_to_node()
+    #o.beaconing('number_5')
 rospy.spin()
