@@ -182,7 +182,7 @@ class Navi():
         #Declare object found and ask user which one to reach
         for k in self.keys:
             
-            if(self.node_dict[k]['visibility']!=0):
+            if(self.node_dict[k]['visibility']!=1000):
                 keys.append(k)
                 print(keys)
                 st+="\n Object "+str(k)+" detected and referenced as: "+str(len(keys)-1)
