@@ -85,7 +85,7 @@ class ObjectSearch():
 ##### ERIC #####
 class Navi():
     def __init__(self):
-        self.nodes_list=[Point(0,0,0)]#,Point(1.09,3.13,0),Point(3.2,1.0,0),Point(4.54,1.0,0)
+        self.nodes_list=[Point(0,0,0),Point(1.09,3.13,0),Point(3.2,1.0,0),Point(4.54,1.0,0)]
 
         best_node_values =[dict(mark=40, best_node=None, orientation=None, visibility=1000),
                            dict(mark=80, best_node=None, orientation=None, visibility=1000),
@@ -182,7 +182,7 @@ class Navi():
         #Declare object found and ask user which one to reach
         for k in self.keys:
             
-            if(self.node_dict[k]['visibility']!=1000):
+            if(self.node_dict[k]['visibility']!=0):
                 keys.append(k)
                 print(keys)
                 st+="\n Object "+str(k)+" detected and referenced as: "+str(len(keys)-1)
@@ -208,9 +208,9 @@ class Beacon():
 
         self.pub = rospy.Publisher('cmd_vel', Twist, queue_size=10)
         self.controller = Twist()
-        self.fwd_speed = 0.2
-        self.reach_dis = 0.5
-        self.safe_dis_front = 0.4
+        self.fwd_speed = 0.17
+        self.reach_dis = 0.35
+        self.safe_dis_front = 0.37
         self.safe_dis_side = 0.3
         self.front_check_angle = 35
         self.side_check_angle = 45
@@ -246,11 +246,21 @@ class Beacon():
         # width-range in img of objective
         # None or a tuple
         pos = self.find_obj_pos(dedi_pixel)
-        
         if pos is not None and self.reached_check(dedi_pixel, pos) and self.better_reach_res():
             self.controller = Twist()
             self.pub.publish(self.controller)
             self.sing_res = True
+            return
+
+        obs = self.nearest_obs(self.beer_grey)
+        if obs[0]:
+            if obs[1] == 'right':
+                self.turn_right_marker, self.turn_left_marker = True, False
+                self.turn('right')
+            elif obs[1] == 'left':
+                self.turn_right_marker, self.turn_left_marker = False, True
+                self.turn('left')
+            self.sing_res = False
             return
         
         # front_left, front_right, side_left, side_right 
@@ -307,7 +317,11 @@ class Beacon():
                 return
 
         if pos is None:
-            if self.turn_right_marker:
+            if self.obs_avi:
+                self.forward()
+                self.sing_res = False
+                return
+            elif self.turn_right_marker:
                 # print('left back')
                 self.turn('left')
                 self.sing_res = False
@@ -317,9 +331,32 @@ class Beacon():
                 self.turn('right')
                 self.sing_res = False
                 return
+            else:
+                self.forward()
+                self.sing_res = False
+                return
         else:
             err = self.cal_err(pos)
             self.free_beacon(err)
+
+    def nearest_obs(self, beer_grey):
+        s = self.output.copy()
+        d = self.dep_resized.copy()
+        a = np.where(s[:,:]==beer_grey, 1, 0)
+        count = np.where(a==1)[0].size
+        if count == 0:
+            self.obs_avi = False
+            return (False, None)
+        else:
+            self.obs_avi = True
+        d = np.nan_to_num(d)
+        activated_depth_array = a * d[:,:]
+        activated_depth_array[activated_depth_array[:,:]==0] = 100
+        min_dis = np.min(activated_depth_array)
+        if min_dis > 0.50:
+            return (False, None)
+        else:
+            return (True, 'right')
 
     def free_beacon(self, err):
         # print('free beaconing')
@@ -477,14 +514,13 @@ class Env_detect():
         if fi_check is not None:
             self.generate_output(fi_check, self.candidate_dict['fire_hydrant'], self.mark_dict['fire_hydrant']['mark'])
 
-        # need sort beer can from mail_box
-        beer_marker = self.beer_sort(self.sliced_masks_canny_dict['mail_box'])
-        self.draw_beer(beer_marker)
-
         di_check = self.confirm(self.sliced_masks_canny_dict['number_5'], self.sliced_filled_canny_dict['number_5'])
         if di_check is not None:
             self.generate_output(di_check, self.candidate_dict['number_5'], self.mark_dict['number_5']['mark'])
 
+        # need sort beer can from mail_box
+        beer_marker = self.beer_sort(self.sliced_masks_canny_dict['mail_box'])
+        self.draw_beer(beer_marker)
         self.draw_mail(beer_marker)
 
         # green box has flat surface
@@ -727,7 +763,7 @@ if __name__ == '__main__':
         while not res:
             bea.beacon_control()
             res = bea.sing_res
-
+        print(res, bea.sing_res)
         if res:
             rospy.loginfo(str(choice)+" reached.")
             controller.indic = None
